@@ -43,7 +43,6 @@
     const token = generation;
     if (!running) return;
     if (location.href !== startURL) { stop('Page changed: stopped.'); return; }
-    if (document.hidden) { $('status').textContent = 'Paused until this tab is visible …'; timer = setTimeout(tick,1000); return; }
     if (document.querySelector('[role="dialog"]')) { stop('Dialog opened: review it and restart if needed.'); return; }
     try {
       const errorNode = [...document.querySelectorAll('[role="alert"],[aria-live="assertive"]')].find(el => {

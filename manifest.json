@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cheers Mate",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Instagram follow clicker with random 5–15 second delays and automatic resume after page reloads.",
   "permissions": [
     "activeTab",
