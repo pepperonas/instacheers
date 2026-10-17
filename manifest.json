@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Cheers Mate",
+  "version": "1.2.1",
+  "description": "Instagram follow clicker with random 5–15 second delays and automatic resume after page reloads.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Cheers Mate"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*",
+        "https://instagram.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
