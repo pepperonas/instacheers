@@ -40,6 +40,8 @@ Search panel and profile-header recognition currently target English and German 
 4. Click **Start**. The first click also waits for a random delay.
 5. Click **Stop**, press **Escape**, or close the on-page controls to stop the run and automatic reloads.
 
+Typing and editing inside the overlay are isolated from Instagram's page shortcuts, so the keyword field keeps focus while you type. Native text editing, paste, Tab navigation, and button activation remain enabled. Escape also stops a run when focus is inside the overlay.
+
 The controls show a countdown and the total number of click attempts. A beer glass pulses with bubbles for two seconds, bursts into gold and white droplets, and displays **BOTTLED!** before fading out. Both the animation and counter represent click attempts, not confirmed follows.
 
 ## Behavior
@@ -96,6 +98,14 @@ npm run check
 ```
 
 Run only the unit tests with `npm test`. No `npm install` is required. Tests execute the actual scripts with a mocked DOM, Chrome session storage, and deterministic timers. They cover visible and hidden tabs, tab switching, random-delay boundaries, delayed callbacks without click bursts, stop controls, error handling, duplicate detection, scrolling, reload recovery, per-tab storage, version consistency, keyword matching, queued profile navigation, following-state skips, and search cancellation. They do not click a real Instagram account.
+
+An additional browser regression test uses a separate, temporary headless Chrome profile and a local fixture with simulated page shortcuts. It types `camping` with real keyboard events and checks focus, editing, Tab navigation, button clicks, and Escape. No Instagram login or network access to Instagram is involved. Chrome is detected at its default macOS application path; on other systems, set `CHROME_PATH` to your Chrome/Chromium executable:
+
+```sh
+npm run test:browser
+# If needed:
+CHROME_PATH=/usr/bin/google-chrome npm run test:browser
+```
 
 To check the installed extension manually, reload it in `chrome://extensions` and refresh Instagram. Start a run, switch to another tab, wait, and return to inspect the attempt counter. Stop the run and confirm the counter stays unchanged. Then enter `camping`, set a small account limit, and start **Search and follow**. Check that the native search receives the term, each visited profile matches a collected result, the queue resumes after navigation, and Stop prevents further navigation. Background timing can be affected by Chrome's resource management.
 

@@ -2,6 +2,21 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.3.1 — 2026-10-24
+
+### Fixed
+
+- Keep keyboard events from the overlay away from page-level shortcut handlers, including document capture listeners that see the shadow host instead of its text input.
+- Keep editing, composition, clipboard, pointer, click, and focus events inside the overlay at its shadow boundary without preventing native control behavior.
+- Preserve Escape-to-stop inside the overlay while leaving Instagram keyboard behavior outside the controls unchanged.
+
+### Validation
+
+- Reproduce focus loss while typing `camping` with an earlier document capture shortcut in a real headless Chrome fixture; the regression test fails on 1.3.0 and passes with the fix.
+- Verify native typing, Backspace, inserted text, Tab/Shift+Tab, button activation, Escape, and page keyboard behavior outside the overlay in Chrome (`npm run test:browser`).
+- Run the unit suite and syntax checks (`npm run check`) and `git diff --check`.
+- No live Instagram account test; the browser fixture uses the actual content scripts with mocked extension storage.
+
 ## 1.3.0 — 2026-10-24
 
 ### Added

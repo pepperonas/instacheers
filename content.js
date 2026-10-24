@@ -198,6 +198,21 @@
   $('stop').onclick = () => stop();
   $('close').onclick = () => { stop(); host.style.display = 'none'; };
   document.addEventListener('keydown', event => { if(event.key === 'Escape' && running) stop(); },true);
+  // Shadow DOM retargets inputs to the host for page-level shortcut handlers.
+  // Intercept overlay keystrokes before document capture listeners see them,
+  // without canceling native editing, Tab navigation, or button activation.
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    window.addEventListener(type, event => {
+      if (!event.composedPath().includes(host)) return;
+      if (type === 'keydown' && event.key === 'Escape' && running) stop();
+      event.stopImmediatePropagation();
+    }, true);
+  }
+  // Let control handlers run first, then keep interactions inside the overlay.
+  for (const type of ['beforeinput', 'input', 'change', 'compositionstart', 'compositionupdate', 'compositionend', 'copy', 'cut', 'paste', 'click', 'dblclick', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'focusin', 'focusout']) {
+    root.addEventListener(type, event => event.stopPropagation());
+  }
+
 
   window[key] = {show(){host.style.display = '';}};
   chrome.runtime.sendMessage({type:'follow:get'}).then(state => {

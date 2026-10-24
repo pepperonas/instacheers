@@ -12,7 +12,11 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit'].map(id => [id, {}]));
   nodes.scroll.checked = true;
   nodes.keyword.value = ''; nodes.limit.value = '10';
-  const root = { getElementById: id => nodes[id], append() {} };
+  const rootListeners = new Map(), windowListeners = new Map();
+  const root = {
+    getElementById: id => nodes[id], append() {},
+    addEventListener(type, fn) { rootListeners.set(type, fn); }
+  };
   const element = () => ({ style: {}, append() {}, remove() {}, animate() {} });
   const host = { ...element(), attachShadow: () => root };
   const listeners = {};
@@ -41,7 +45,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   }
   const context = {
     document, location, URL, console, HTMLInputElement: Input, Event: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, innerWidth: 1200, innerHeight: 800,
-    window: { scrollBy() { scrolls++; } },
+    window: { scrollBy() { scrolls++; }, addEventListener(type, fn, capture) { windowListeners.set(type, { fn, capture }); } },
     Date: { now: () => now }, Math: Object.assign(Object.create(Math), { random: () => random }),
     getComputedStyle: node => node.computedStyle || ({ visibility: 'visible', display: 'block' }),
     setTimeout(fn, delay) { const id = ++timerID; timers.set(id, { at: now + delay, fn }); return id; },
@@ -68,6 +72,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   return {
     nodes, document, location, messages, timers, host,
     window: context.window,
+    rootListeners, windowListeners,
     setSaveHandler(fn) { saveHandler = fn; },
     run: source => vm.runInNewContext(source, context),
     get now() { return now; },
