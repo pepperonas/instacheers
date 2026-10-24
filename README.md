@@ -1,4 +1,4 @@
-# Cheers Mate
+# InstaCheers
 
 A lightweight Chrome extension that clicks Instagram's **Follow** buttons with random delays and a beer-themed animation. Built with plain JavaScript and Chrome Manifest V3; no build step or external dependencies.
 
@@ -6,18 +6,18 @@ A lightweight Chrome extension that clicks Instagram's **Follow** buttons with r
 
 1. Download and extract this repository, or clone it:
    ```sh
-   git clone https://github.com/pepperonas/cheers-mate.git
+   git clone https://github.com/pepperonas/instacheers.git
    ```
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
-3. Click **Load unpacked** and select the `cheers-mate` folder containing `manifest.json`.
+3. Click **Load unpacked** and select the `instacheers` folder containing `manifest.json`.
 4. Reload any open Instagram tabs.
 
-To update an existing installation, replace the files or pull the latest changes, click the extension's reload button in `chrome://extensions`, then reload Instagram. When replacing the former **Folgen-Klicker** extension, remove that installation first.
+To update an existing installation, replace the files or pull the latest changes, click the extension's reload button in `chrome://extensions`, then reload Instagram. If you installed an earlier version as **Cheers Mate** from a `cheers-mate` folder, remove the old unpacked extension and load the renamed `instacheers` folder, then refresh Instagram. The same applies to the former **Folgen-Klicker** extension.
 
 ## Usage
 
 1. Open Instagram and navigate to account suggestions.
-2. Click the **Cheers Mate** extension icon, then **Open controls**.
+2. Click the **InstaCheers** extension icon, then **Open controls**.
 3. Leave **Scroll automatically** enabled if you want the page to scroll while looking for more accounts.
 4. Click **Start**. The first click also waits for a random delay.
 5. Click **Stop**, press **Escape**, or close the on-page controls to stop the run and automatic reloads.

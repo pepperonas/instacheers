@@ -2,6 +2,20 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.2.3 — 2026-10-24
+
+### Changed
+
+- Rename the app from Cheers Mate to InstaCheers, including popup text, on-page controls, extension metadata, and the internal control API.
+- Rename the GitHub repository and local project folder to `instacheers`, and update installation instructions and repository links.
+- Preserve existing functionality and per-tab storage keys.
+
+### Validation
+
+- Add a regression test that opens the renamed on-page control API through the actual popup script.
+- Run JavaScript syntax checks, the complete unit test suite (`npm run check`), and `git diff --check`.
+- No live test with an Instagram account.
+
 ## 1.2.2 — 2026-10-17
 
 ### Fixed

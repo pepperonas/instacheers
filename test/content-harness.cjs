@@ -52,6 +52,8 @@ async function createHarness({ hidden = false, state = null, random = 0 } = {}) 
   }
   return {
     nodes, document, location, messages, timers, host,
+    window: context.window,
+    run: source => vm.runInNewContext(source, context),
     get now() { return now; },
     get reloads() { return reloads; },
     get scrolls() { return scrolls; },

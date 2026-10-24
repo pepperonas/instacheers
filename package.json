@@ -1,6 +1,6 @@
 {
-  "name": "cheers-mate",
-  "version": "1.2.2",
+  "name": "instacheers",
+  "version": "1.2.3",
   "private": true,
   "description": "Instagram follow clicker Chrome extension",
   "scripts": {

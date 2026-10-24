@@ -1,10 +1,10 @@
 (() => {
-  const key = '__cheersMateV3';
+  const key = '__instaCheersV3';
   if (window[key]) { window[key].show(); return; }
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647';
   const root = host.attachShadow({mode:'open'});
-  root.innerHTML = `<style>:host{all:initial}section{width:290px;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}</style><section><button id="close" aria-label="Close">×</button><h2>Cheers Mate</h2><p>Random 5–15 second delays · Escape to stop</p><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Start</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p></section>`;
+  root.innerHTML = `<style>:host{all:initial}section{width:290px;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}</style><section><button id="close" aria-label="Close">×</button><h2>InstaCheers</h2><p>Random 5–15 second delays · Escape to stop</p><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Start</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p></section>`;
   document.documentElement.append(host);
   let running = false, timer = null, count = 0, empty = 0, startURL = '';
   let reloads = 0, generation = 0, nextAt = 0, previous = null;

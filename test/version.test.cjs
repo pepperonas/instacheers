@@ -18,7 +18,7 @@ test('package, extension, and changelog agree on the current stable SemVer relea
 });
 
 test('the npm version lifecycle synchronizes manifest metadata without changing other fields', t => {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cheers-mate-version-'));
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'instacheers-version-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   fs.mkdirSync(path.join(temp, 'scripts'));
   fs.copyFileSync(path.join(root, 'scripts/sync-version.cjs'), path.join(temp, 'scripts/sync-version.cjs'));
