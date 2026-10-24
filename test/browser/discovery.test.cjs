@@ -87,10 +87,11 @@ test('activates Explore search, prefers the focused dialog input over its visibl
   assert.equal(saved.discovery.limit, 100);
 });
 
-test('skips an already-followed profile and continues to a new account without clicking the relationship control', { timeout: 30000 }, async t => {
+test('skips followed profiles and confirms a rerendered target despite Follow buttons in its suggestion carousel', { timeout: 30000 }, async t => {
   function profile(existing) {
     return `<!doctype html><html><body><main><header>
-      <button id="relationship" ${existing ? 'disabled' : ''}>${existing ? 'Gefolgt Dropdownsymbol' : 'Follow'}</button>
+      <div id="actions"><button id="relationship" ${existing ? 'disabled' : ''}>${existing ? 'Gefolgt Dropdownsymbol' : 'Follow'}</button></div>
+      <aside id="suggestions"><a href="/suggested.account/">Suggested account</a><button id="suggested">Folgen</button></aside>
       </header></main><script>
       Math.random = () => 0;
       window.chrome = {runtime: {
@@ -102,8 +103,15 @@ test('skips an already-followed profile and continues to a new account without c
       }};
       document.getElementById('relationship').onclick = event => {
         localStorage.setItem('${existing ? 'existingClicks' : 'newClicks'}', String(Number(localStorage.getItem('${existing ? 'existingClicks' : 'newClicks'}') || 0) + 1));
-        event.currentTarget.textContent = 'Following';
+        const oldButton = event.currentTarget;
+        const currentButton = document.createElement('button');
+        currentButton.textContent = 'Gefolgt';
+        document.getElementById('actions').replaceChildren(currentButton);
+        // Keep the old Follow node connected in a suggestion card after rerender.
+        oldButton.textContent = 'Follow';
+        document.getElementById('suggestions').append(oldButton);
       };
+      document.getElementById('suggested').onclick = () => localStorage.setItem('suggestionClicks', '1');
       </script></body></html>`;
   }
   const origin = await site(t, url => {
@@ -138,7 +146,7 @@ test('skips an already-followed profile and continues to a new account without c
         injectedPath = pathname;
       }
       outcome = await chrome.evaluate(`({existing:Number(localStorage.getItem('existingClicks') || 0),new:Number(localStorage.getItem('newClicks') || 0),state:JSON.parse(localStorage.getItem('run'))})`);
-      if (outcome.new === 1 && outcome.state.count === 1) break;
+      if (outcome.new === 1 && outcome.state.count === 1 && !outcome.state.running) break;
     } catch { /* Page navigation replaces the current script context. */ }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -147,9 +155,9 @@ test('skips an already-followed profile and continues to a new account without c
   assert.equal(outcome.state.count, 1);
   assert.equal(outcome.state.discovery.skipped, 1);
   assert.equal(outcome.state.discovery.inspected, 2);
-  await chrome.evaluate(`
-    [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot.getElementById('stop').click();
-  `);
+  assert.equal(outcome.state.running, false);
+  assert.match(outcome.state.status, /Account limit reached/);
+  assert.equal(await chrome.evaluate(`localStorage.getItem('suggestionClicks')`), null);
 });
 
 test('a #vanlife entry becomes a vanlife account search instead of getting stuck on hashtag-only results', { timeout: 30000 }, async t => {

@@ -142,6 +142,18 @@
     $('status').textContent = searchSubmittedAt ? 'Searching Instagram for “' + discovery.keyword + '” …' : 'Waiting for the Instagram search field to open …';
     timer = setTimeout(tick,1000);
   }
+  function targetsCurrentProfile(button, header) {
+    // Suggested-account cards can be rendered inside the same profile header.
+    // Use small, nearby account cards as ownership evidence; do not infer an
+    // owner from an entire header that contains multiple unrelated controls.
+    for (let row = button.parentElement, depth = 0; row && row !== header && depth < 4; row = row.parentElement, depth++) {
+      const links = row.querySelectorAll ? [...row.querySelectorAll('a[href]')] : [row.querySelector?.('a[href]')].filter(Boolean);
+      const owners = [...new Set(links.map(link => searchAPI.profilePath(link.href)).filter(Boolean))];
+      const controls = row.querySelectorAll?.('button,[role="button"]');
+      if (owners.length === 1 && (!controls || controls.length <= 3)) return owners[0] === discovery.current;
+    }
+    return true;
+  }
   async function profileTick(token) {
     // Scope follow buttons to the profile header, excluding suggested accounts.
     if (searchAPI.profilePath(location.href) !== discovery.current) {
@@ -150,11 +162,8 @@
     const header = document.querySelector('main header');
     const buttons = header ? [...header.querySelectorAll('button,[role="button"]')].filter(el => {
       const style = getComputedStyle(el);
-      return el.getClientRects().length && style.visibility === 'visible';
+      return el.getClientRects().length && style.visibility === 'visible' && targetsCurrentProfile(el, header);
     }) : [];
-    if (discovery.awaitingConfirmation && buttons.some(el => /^(Follow|Folgen)$/.test(text(el)))) {
-      stop('Follow was not confirmed after the delay. Please check Instagram.'); return;
-    }
     const controlLabel = el => text(el) || el.getAttribute('aria-label') || '';
     const alreadyFollowing = buttons.some(el => /^(Following|Requested|Gefolgt|Angefragt|Abonniert|Edit profile|Profil bearbeiten)\b/i.test(controlLabel(el)));
     if ((!discovery.awaitingConfirmation && ids.has(discovery.current)) || alreadyFollowing) {
@@ -162,6 +171,11 @@
       ids.add(discovery.current);
       progress();
       await nextProfile(token); return;
+    }
+    // Current profile relationship state is authoritative after a rerender.
+    // Suggested Follow buttons must not contradict a confirmed Following state.
+    if (discovery.awaitingConfirmation && buttons.some(el => /^(Follow|Folgen)$/.test(controlLabel(el)))) {
+      stop('Follow was not confirmed after the delay. Please check Instagram.'); return;
     }
     const button = !discovery.awaitingConfirmation && buttons.find(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && /^(Follow|Folgen)$/.test(controlLabel(el)));
     if (!button) {
@@ -172,7 +186,7 @@
       timer = setTimeout(tick,1000); return;
     }
     nextAt = Date.now() + randomDelay();
-    button.click(); previous = button; count++;
+    button.click(); count++;
     ids.add(discovery.current);
     discovery.awaitingConfirmation = true;
     celebrate(button.getBoundingClientRect());
@@ -202,11 +216,11 @@
         $('status').textContent = 'Next click in ' + Math.ceil((nextAt-Date.now())/1000) + ' s …';
         timer = setTimeout(tick,Math.min(1000,nextAt-Date.now())); return;
       }
+      if (discovery?.phase === 'profile') { await profileTick(token); return; }
       if (previous?.isConnected && /^(Folgen|Follow)$/.test(text(previous))) {
         stop('Follow was not confirmed after the delay. Please check Instagram.'); return;
       }
       previous = null;
-      if (discovery?.phase === 'profile') { await profileTick(token); return; }
       const button = candidates()[0];
       if (button) {
         empty = 0; reloads = 0;

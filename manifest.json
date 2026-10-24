@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "InstaCheers",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Find Instagram accounts by keyword and follow them with random delays and resumable profile queues.",
   "permissions": [
     "activeTab",

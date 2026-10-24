@@ -566,3 +566,61 @@ test('never treats a hashtag result as a followable profile', async () => {
   assert.equal(h.location.href, 'https://www.instagram.com/explore/people/');
   assert.equal(h.state.count, 0);
 });
+
+test('accepts the current profile Following state even when its header also contains suggested Follow buttons', async () => {
+  const state = profileState({ count: 1, ids: ['/camping.one/'] });
+  state.discovery.awaitingConfirmation = true;
+  const h = await createProfileHarness({ state });
+  const current = h.addButton('Gefolgt ▾');
+  const suggestion = h.addButton('Folgen', { profile: 'suggested.account' });
+  h.document.profileHeader = { querySelectorAll: () => [current, suggestion] };
+  await h.advance(2500);
+  assert.equal(h.state.running, true);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.two/');
+  assert.equal(h.state.count, 1);
+  assert.equal(suggestion.clicks, 0);
+});
+
+test('does not let a stale clicked node override a freshly rendered profile Following control', async () => {
+  const h = await createProfileHarness({ state: profileState() });
+  const clicked = h.addButton('Follow', { confirmed: false });
+  let controls = [clicked];
+  clicked.click = () => {
+    clicked.clicks++;
+    const replacement = h.addButton('Following');
+    // React can retain/reuse the old node elsewhere while replacing the profile action.
+    clicked.parentElement = { querySelector: () => ({ href: 'https://www.instagram.com/suggested.account/' }) };
+    controls = [replacement, clicked];
+  };
+  h.document.profileHeader = { querySelectorAll: () => controls };
+  await h.advance(7500);
+  assert.equal(clicked.clicks, 1);
+  assert.equal(h.state.running, true);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.two/');
+  assert.equal(h.state.count, 1);
+});
+
+test('does not mistake a suggested account Following control for confirmation of the target profile', async () => {
+  const state = profileState({ count: 1, ids: ['/camping.one/'] });
+  state.discovery.awaitingConfirmation = true;
+  const h = await createProfileHarness({ state });
+  const current = h.addButton('Follow', { confirmed: false });
+  const suggestion = h.addButton('Following', { profile: 'suggested.account' });
+  h.document.profileHeader = { querySelectorAll: () => [current, suggestion] };
+  await h.advance(2500);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /not confirmed/);
+  assert.equal(h.location.href, state.startURL);
+  assert.equal(current.clicks, 0);
+  assert.equal(suggestion.clicks, 0);
+});
+
+test('does not click a suggested account when the target relationship controls are missing', async () => {
+  const h = await createProfileHarness({ state: profileState() });
+  const suggestion = h.addButton('Follow', { profile: 'suggested.account' });
+  h.document.profileHeader = { querySelectorAll: () => [suggestion] };
+  await h.advance(20500);
+  assert.equal(suggestion.clicks, 0);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /Profile controls not found/);
+});

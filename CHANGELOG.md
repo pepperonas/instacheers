@@ -2,6 +2,22 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.4.3 — 2026-10-25
+
+### Fixed
+
+- Confirm a keyword-run follow from the target profile's current relationship controls, giving Following/Requested states precedence over unrelated Follow buttons.
+- Exclude identifiable suggested-account controls even when Instagram renders them inside the same profile header.
+- Stop relying on a cached clicked node during profile confirmation; rerendered or reused nodes cannot contradict the current profile's Following state.
+- Preserve the stop condition for a target that still shows Follow and do not treat a suggested account's Following state as target confirmation.
+
+### Validation
+
+- Reproduce both false stops on the previous code with unit tests, then verify the fix and negative cases involving unrelated suggestion controls.
+- Extend the multi-page Chrome fixture with a suggestion carousel and a replaced profile action whose old Follow node remains connected. Verify the run reaches its account limit instead of falsely reporting an unconfirmed follow.
+- Run `npm run check`, `npm run test:browser`, and `git diff --check`.
+- Chrome tests use local fixtures; the live Instagram profile DOM has not been directly inspected.
+
 ## 1.4.2 — 2026-10-24
 
 ### Fixed
