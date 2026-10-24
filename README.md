@@ -10,7 +10,7 @@ A lightweight Chrome extension that finds Instagram accounts by keyword and clic
    ```
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 3. Click **Load unpacked** and select the `instacheers` folder containing `manifest.json`.
-4. Reload any open Instagram tabs.
+4. Reload any open Instagram tabs. The overlay shows the installed version next to **InstaCheers**.
 
 To update an existing installation, replace the files or pull the latest changes, click the extension's reload button in `chrome://extensions`, then reload Instagram. If you installed an earlier version as **Cheers Mate** from a `cheers-mate` folder, remove the old unpacked extension and load the renamed `instacheers` folder, then refresh Instagram. The same applies to the former **Folgen-Klicker** extension.
 
@@ -22,13 +22,13 @@ To update an existing installation, replace the files or pull the latest changes
 2. Click the **InstaCheers** extension icon, then **Open controls**.
 3. Enter a term such as `camping` in **Find accounts**.
 4. Set **Maximum accounts** (default: 10, range: 1–50).
-5. Click **Search and follow**. InstaCheers opens Instagram's normal search, enters the term, and waits for matching account links.
+5. Click **Search and follow**. InstaCheers activates Instagram's search field (including read-only search launchers), focuses its editable input, enters the term, and waits for matching account links. The status distinguishes waiting for the search field from collecting results.
 6. The extension visits the collected profiles in the same tab and clicks the profile header's **Follow** button when available. Accounts already marked **Following** or **Requested** are skipped. It stops when the queue is complete.
 7. Click **Stop**, press **Escape** while the Instagram tab has focus, or close the controls to cancel.
 
-Search uses a snapshot of the visible account links in Instagram's search panel whose text contains your keyword, ignoring case. It does not infer a profile's interests, search post captions or hashtags, or crawl every result. The account limit caps profiles visited, including accounts skipped because you already follow them; fewer results may be available. Only the profile header is used for follow clicks, excluding suggested accounts elsewhere on a profile.
+Search uses a snapshot of the visible account links in Instagram's search panel whose text, accessible label, or profile username contains your keyword, ignoring case. It does not infer a profile's interests, search post captions or hashtags, or crawl every result. The account limit caps profiles visited, including accounts skipped because you already follow them; fewer results may be available. Only the profile header is used for follow clicks, excluding suggested accounts elsewhere on a profile.
 
-The search term, queued profile paths, expected destination, and click deadline are saved before each profile navigation, allowing the run to continue when the page loads. Unexpected navigation stops the run. If no matching search results or profile controls can be identified within 20 seconds, the run stops with a message. Changing the search term directly on Instagram also stops discovery. The existing error and dialog checks remain active when following profiles.
+The search term and account limit are saved while you edit them and remain visible after refreshing, together with the last stopped status. A stopped run never restarts just because you refresh. Active searches reopen and re-enter the term with a fresh discovery timeout after refresh. The queued profile paths, expected destination, and click deadline are saved before each profile navigation, allowing the run to continue when the page loads. Unexpected navigation stops the run. If no matching search results or profile controls can be identified within 20 seconds, the run stops with a message. Changing the search term directly on Instagram also stops discovery. The existing error and dialog checks remain active when following profiles.
 
 Search panel and profile-header recognition currently target English and German labels. Instagram layout variants may not be recognized; if search is not found, open **Search** on Instagram and try again. This workflow is covered by local tests but has not been validated against a signed-in Instagram account.
 
@@ -37,7 +37,7 @@ Search panel and profile-header recognition currently target English and German 
 1. Open Instagram and navigate to account suggestions.
 2. Click the **InstaCheers** extension icon, then **Open controls**.
 3. Leave **Scroll automatically** enabled if you want the page to scroll while looking for more accounts.
-4. Click **Start**. The first click also waits for a random delay.
+4. Leave **Find accounts** empty and click **Follow this page**. The first click also waits for a random delay. With a keyword entered, this button starts keyword search instead. On an Explore post grid without Follow buttons, the extension asks for a search term instead of repeatedly reloading.
 5. Click **Stop**, press **Escape**, or close the on-page controls to stop the run and automatic reloads.
 
 Typing and editing inside the overlay are isolated from Instagram's page shortcuts, so the keyword field keeps focus while you type. Native text editing, paste, Tab navigation, and button activation remain enabled. Escape also stops a run when focus is inside the overlay.
@@ -63,7 +63,7 @@ Instagram can change its interface or restrict actions. Delays do not remove an 
 
 The extension uses no external services or analytics and makes no private API calls. Search input, profile navigation, and follow clicks use Instagram's normal interface and trigger Instagram's own network requests.
 
-Run state is stored in Chrome's session storage, keyed by tab ID. It includes the current URL, processed profile paths, click count, reload count, next click time, and scrolling preference. During a keyword run it also includes the search term, account limit, remaining profile queue, current target, and follow-confirmation state. It is cleared when the tab closes or the browser restarts.
+Run state is stored in Chrome's session storage, keyed by tab ID. It includes the current URL, processed profile paths, click count, reload count, next click time, and scrolling preference. During a keyword run it also includes the search term, account limit, remaining profile queue, current target, and follow-confirmation state. The keyword, account limit, and last status are also retained for stopped runs within the tab session. It is cleared when the tab closes or the browser restarts.
 
 | Permission or scope | Purpose |
 | --- | --- |
@@ -99,7 +99,7 @@ npm run check
 
 Run only the unit tests with `npm test`. No `npm install` is required. Tests execute the actual scripts with a mocked DOM, Chrome session storage, and deterministic timers. They cover visible and hidden tabs, tab switching, random-delay boundaries, delayed callbacks without click bursts, stop controls, error handling, duplicate detection, scrolling, reload recovery, per-tab storage, version consistency, keyword matching, queued profile navigation, following-state skips, and search cancellation. They do not click a real Instagram account.
 
-An additional browser regression test uses a separate, temporary headless Chrome profile and a local fixture with simulated page shortcuts. It types `camping` with real keyboard events and checks focus, editing, Tab navigation, button clicks, and Escape. No Instagram login or network access to Instagram is involved. Chrome is detected at its default macOS application path; on other systems, set `CHROME_PATH` to your Chrome/Chromium executable:
+An additional browser regression test uses a separate, temporary headless Chrome profile and a local fixture with simulated page shortcuts. It types `camping` with real keyboard events and checks focus, editing, Tab navigation, button clicks, and Escape. The search browser test also activates an Explore search launcher, distinguishes it from the focused search input, fills the native search input, recognizes a separate result portal, and navigates to a saved profile path. No Instagram login or network access to Instagram is involved. Chrome is detected at its default macOS application path; on other systems, set `CHROME_PATH` to your Chrome/Chromium executable:
 
 ```sh
 npm run test:browser

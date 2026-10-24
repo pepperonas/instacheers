@@ -27,7 +27,9 @@ test('uses the native search input and only collects matching same-origin accoun
   await h.search('camping', 2);
   await h.advance(1000);
   assert.equal(input.value, 'camping');
-  assert.equal(input.lastEvent.type, 'input');
+  assert.ok(input.events.some(event => event.type === 'input' && event.composed));
+  assert.equal(input.focused, true);
+  assert.equal(input.clicked, true);
   assert.equal(input.lastEvent.bubbles, true);
   await h.advance(5000);
   assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
@@ -246,4 +248,130 @@ test('a storage error stops the run before opening the next profile', async () =
   assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
   assert.equal(h.state.running, false);
   assert.match(h.nodes.status.textContent, /Storage unavailable/);
+});
+
+test('activates a read-only Explore search launcher instead of filling it', async () => {
+  const h = await createHarness({ href: 'https://www.instagram.com/explore/' });
+  const launcher = h.openSearch();
+  launcher.readOnly = true;
+  launcher.click = () => { h.openSearch(['camping.one']); };
+  h.document.triggers = [launcher];
+  await h.search();
+  assert.equal(launcher.value, '');
+  await h.advance(6000);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
+});
+
+test('collects search results linked through aria-controls outside the input ancestors', async () => {
+  const h = await createHarness();
+  const input = h.openSearch();
+  const original = input.getAttribute;
+  input.getAttribute = name => name === 'aria-controls' ? 'account-results' : original(name);
+  h.document.portals['account-results'] = {
+    getClientRects: () => [{}],
+    querySelectorAll: () => [{
+      innerText: '', href: '/camping.hiddenlabel/',
+      getClientRects: () => [{}], closest: () => null
+    }]
+  };
+  await h.search();
+  await h.advance(6000);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.hiddenlabel/');
+});
+
+test('does not reject an inline Explore search simply because it is inside main', async () => {
+  const h = await createHarness();
+  const input = h.openSearch(['camping.one']);
+  const searchMain = input.parentElement;
+  const wrapper = { querySelector: selector => selector === 'main' ? { contains: node => node === input } : null, querySelectorAll: searchMain.querySelectorAll };
+  input.parentElement = wrapper;
+  await h.search();
+  await h.advance(6000);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
+});
+
+test('reopens and resubmits a saved keyword search after refresh with a fresh discovery deadline', async () => {
+  const h = await createHarness({ state: {
+    running: true, keyword: 'camping', limit: '2', startURL: 'https://www.instagram.com/explore/people/',
+    discovery: { keyword: 'camping', limit: 2, phase: 'search', startedAt: 1, queue: [] }
+  } });
+  const input = h.openSearch(['camping.one']);
+  await h.advance(7500);
+  assert.equal(input.value, 'camping');
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
+});
+
+test('retains the edited keyword, limit, and stopped status after refreshing without restarting', async () => {
+  const h = await createHarness();
+  h.nodes.keyword.value = 'camping';
+  h.nodes.limit.value = '4';
+  h.nodes.keyword.oninput();
+  const saved = h.state;
+  assert.equal(saved.keyword, 'camping');
+  assert.equal(saved.limit, '4');
+  assert.equal(saved.running, false);
+  const refreshed = await createHarness({ state: saved });
+  assert.equal(refreshed.nodes.keyword.value, 'camping');
+  assert.equal(refreshed.nodes.limit.value, '4');
+  assert.equal(refreshed.nodes.status.textContent, 'Ready to search.');
+  assert.equal(refreshed.host.style.display, '');
+  assert.equal(refreshed.timers.size, 0);
+});
+
+test('does not reload an Explore post grid without Follow buttons', async () => {
+  const h = await createHarness({ href: 'https://www.instagram.com/explore/' });
+  await h.start();
+  await h.advance(60000);
+  assert.equal(h.reloads, 0);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /No Follow buttons/);
+});
+
+test('Start with a keyword runs account search instead of the empty-page reload loop', async () => {
+  const h = await createHarness({ href: 'https://www.instagram.com/explore/' });
+  h.nodes.keyword.value = 'camping';
+  h.openSearch(['camping.one']);
+  await h.start();
+  await h.advance(6000);
+  assert.equal(h.reloads, 0);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
+});
+
+test('distinguishes an unopened search from an empty result list', async () => {
+  const h = await createHarness();
+  h.document.triggers = [{
+    innerText: 'Search', getClientRects: () => [{}], getAttribute: () => null,
+    querySelector: () => null, click() {}
+  }];
+  await h.search();
+  await h.advance(20000);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /search did not open/);
+});
+
+test('persists an Instagram search-route change without confusing it with unrelated navigation', async () => {
+  const h = await createHarness({ href: 'https://www.instagram.com/explore/' });
+  h.openSearch(['camping.one']);
+  await h.search();
+  h.location.href = 'https://www.instagram.com/explore/search/';
+  await h.advance(1000);
+  assert.equal(h.state.running, true);
+  assert.equal(h.state.startURL, h.location.href);
+  h.location.href = 'https://www.instagram.com/unrelated/';
+  await h.advance(1000);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /Page changed/);
+});
+
+test('prefers the focused search input when an older editable launcher stays visible', async () => {
+  const h = await createHarness();
+  const launcher = h.openSearch();
+  const field = h.openSearch(['camping.one']);
+  h.document.inputs = [launcher, field];
+  field.focus();
+  await h.search();
+  await h.advance(6000);
+  assert.equal(launcher.value, '');
+  assert.equal(field.value, 'camping');
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
 });

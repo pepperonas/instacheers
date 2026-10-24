@@ -4,21 +4,23 @@
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647';
   const root = host.attachShadow({mode:'open'});
-  root.innerHTML = `<style>:host{all:initial}section{width:290px;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}input[type="search"],input[type="number"]{box-sizing:border-box;width:100%;padding:8px;margin-top:5px;border:1px solid #454c6a;border-radius:6px;background:#1d263a;color:white}#search{margin:0 0 8px}</style><section><button id="close" aria-label="Close">×</button><h2>InstaCheers</h2><p>Random 5–15 second delays · Escape to stop</p><label>Find accounts<input id="keyword" type="search" maxlength="100" placeholder="e.g. camping"></label><label>Maximum accounts<input id="limit" type="number" min="1" max="50" value="10"></label><button id="search">Search and follow</button><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Start</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p></section>`;
+  root.innerHTML = `<style>:host{all:initial}section{width:290px;max-height:calc(100vh - 80px);overflow:auto;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}input[type="search"],input[type="number"]{box-sizing:border-box;width:100%;padding:8px;margin-top:5px;border:1px solid #454c6a;border-radius:6px;background:#1d263a;color:white}#search{margin:0 0 8px}</style><section><button id="close" aria-label="Close">×</button><h2>InstaCheers <small id="version" style="font-size:11px;color:#c4cbe0"></small></h2><p>Random 5–15 second delays · Escape to stop</p><label>Find accounts<input id="keyword" type="search" maxlength="100" placeholder="e.g. camping"></label><label>Maximum accounts<input id="limit" type="number" min="1" max="50" value="10"></label><button id="search">Search and follow</button><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Follow this page</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p></section>`;
   document.documentElement.append(host);
   let running = false, timer = null, count = 0, empty = 0, startURL = '';
   let reloads = 0, generation = 0, nextAt = 0, previous = null;
   let discovery = null, searchSubmittedAt = 0, resultsChangedAt = 0, resultSignature = '';
+  let searchOpenedAt = 0, submittedInput = null;
   const searchAPI = window.__instaCheersDiscovery;
   const randomDelay = () => (5 + Math.floor(Math.random() * 11)) * 1000;
   const save = async () => {
-    const response = await chrome.runtime.sendMessage({type:'follow:set',state:{running,count,startURL,ids:[...ids],reloads,nextAt,scroll:$('scroll').checked,discovery}});
+    const response = await chrome.runtime.sendMessage({type:'follow:set',state:{running,count,startURL,ids:[...ids],reloads,nextAt,scroll:$('scroll').checked,discovery,keyword:$('keyword').value,limit:$('limit').value,status:$('status').textContent}});
     if (response?.error) throw new Error(response.error);
   };
   host.style.display = 'none';
   let seen = new WeakSet();
   const ids = new Set();
   const $ = id => root.getElementById(id);
+  $('version').textContent = 'v' + chrome.runtime.getManifest().version;
   const text = el => (el.innerText || el.textContent || '').replace(/\s+/g,' ').trim();
   function identity(el) {
     let row = el.parentElement;
@@ -62,13 +64,22 @@
   }
   async function searchTick(token) {
     if (Date.now() - discovery.startedAt >= 20000) {
-      stop('No matching accounts found. Check Instagram search and try again.'); return;
+      stop(searchSubmittedAt ? 'No matching accounts found. Check the visible Instagram search results and try again.' : 'Instagram search did not open. Open Search on Instagram and try again.'); return;
     }
-    const input = searchAPI.input();
-    if (input && !searchSubmittedAt) {
-      searchAPI.submit(input, discovery.keyword);
-      searchSubmittedAt = Date.now();
-      resultsChangedAt = Date.now();
+    let input = searchAPI.input();
+    if (!searchSubmittedAt && (!searchOpenedAt || Date.now() - searchOpenedAt >= 3000)) {
+      searchAPI.open(); searchOpenedAt = Date.now();
+      input = searchAPI.input();
+    }
+    if (input && (!searchSubmittedAt || (input !== submittedInput && !input.value))) {
+      if (searchAPI.submit(input, discovery.keyword)) {
+        submittedInput = input;
+        searchSubmittedAt = Date.now();
+        resultsChangedAt = Date.now(); resultSignature = '';
+      } else {
+        $('status').textContent = 'Instagram did not accept the search text. Open Search on Instagram and enter the term there.';
+        timer = setTimeout(tick,1000); return;
+      }
     }
     if (input && searchSubmittedAt && input.value !== discovery.keyword) {
       stop('Search term changed on Instagram. Start a new search to continue.'); return;
@@ -82,7 +93,7 @@
         await nextProfile(token); return;
       }
     }
-    $('status').textContent = 'Searching Instagram for “' + discovery.keyword + '” …';
+    $('status').textContent = searchSubmittedAt ? 'Searching Instagram for “' + discovery.keyword + '” …' : 'Waiting for the Instagram search field to open …';
     timer = setTimeout(tick,1000);
   }
   async function profileTick(token) {
@@ -123,9 +134,15 @@
   async function tick() {
     const token = generation;
     if (!running) return;
-    if (location.href !== startURL) { stop('Page changed: stopped.'); return; }
+    let searchRouteChanged = false;
+    if (location.href !== startURL) {
+      const url = new URL(location.href);
+      if (discovery?.phase === 'search' && url.origin === location.origin && /^\/explore\/search(?:\/|$)/.test(url.pathname)) { startURL = location.href; searchRouteChanged = true; }
+      else { stop('Page changed: stopped.'); return; }
+    }
     if (discovery?.phase !== 'search' && document.querySelector('[role="dialog"]')) { stop('Dialog opened: review it and restart if needed.'); return; }
     try {
+      if (searchRouteChanged) { await save(); if (!running || token !== generation) return; }
       const errorNode = [...document.querySelectorAll('[role="alert"],[aria-live="assertive"]')].find(el => {
         return el.getClientRects().length && /hochladen fehlgeschlagen|fehler beim|try again later|versuche es später|we restrict|action blocked|upload failed/i.test(text(el));
       });
@@ -171,6 +188,10 @@
   }
   $('start').onclick = async () => {
     if (running) return;
+    if ($('keyword').value.trim()) { await $('search').onclick(); return; }
+    if (/^\/explore\/(?:search\/.*)?$/.test(new URL(location.href).pathname) && !candidates().length) {
+      stop('No Follow buttons on this Explore page. Enter a term above and use Search and follow.'); return;
+    }
     discovery = null; previous = null;
     running = true; empty = 0; reloads = 0; generation++; startURL = location.href;
     controls(true);
@@ -189,11 +210,17 @@
     startURL = location.href;
     discovery = { keyword, limit, phase:'search', startedAt:Date.now(), queue:[], current:null };
     searchSubmittedAt = 0; resultSignature = ''; resultsChangedAt = 0;
+    searchOpenedAt = Date.now(); submittedInput = null;
     nextAt = Math.max(nextAt, Date.now() + randomDelay());
     controls(true);
     const token = generation;
     try { await save(); if (running && token === generation) timer = setTimeout(tick,1000); }
     catch (error) { stop('Error: ' + error.message); }
+  };
+  for (const id of ['keyword', 'limit']) $(id).oninput = () => {
+    if (running) return;
+    $('status').textContent = 'Ready to search.';
+    save().catch(console.error);
   };
   $('stop').onclick = () => stop();
   $('close').onclick = () => { stop(); host.style.display = 'none'; };
@@ -216,10 +243,21 @@
 
   window[key] = {show(){host.style.display = '';}};
   chrome.runtime.sendMessage({type:'follow:get'}).then(state => {
-    if (!state?.running || state.startURL !== location.href || running) return;
+    if (!state || running) return;
+    $('keyword').value = state.keyword ?? state.discovery?.keyword ?? '';
+    $('limit').value = state.limit ?? state.discovery?.limit ?? '10';
+    if (!state.running) {
+      if ($('keyword').value || state.status) { host.style.display = ''; $('status').textContent = state.status || 'Ready to search.'; }
+      return;
+    }
+    if (state.startURL !== location.href) {
+      host.style.display = ''; stop('Page changed: stopped. Your search term has been kept.'); return;
+    }
     running = true; count = state.count || 0; startURL = state.startURL; reloads = state.reloads || 0; nextAt = state.nextAt || Date.now() + randomDelay();
     discovery = state.discovery || null;
-    if (discovery) { $('keyword').value = discovery.keyword; $('limit').value = discovery.limit; }
+    if (discovery?.phase === 'search') {
+      discovery.startedAt = Date.now(); searchOpenedAt = 0;
+    }
     for (const id of state.ids || []) ids.add(id);
     $('scroll').checked = state.scroll !== false;
     host.style.display = ''; controls(true);

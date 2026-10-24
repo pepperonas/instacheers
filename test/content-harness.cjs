@@ -9,7 +9,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const timers = new Map();
   const messages = [];
   let saveHandler = async () => null;
-  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit'].map(id => [id, {}]));
+  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit', 'version'].map(id => [id, {}]));
   nodes.scroll.checked = true;
   nodes.keyword.value = ''; nodes.limit.value = '10';
   const rootListeners = new Map(), windowListeners = new Map();
@@ -21,13 +21,14 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const host = { ...element(), attachShadow: () => root };
   const listeners = {};
   const document = {
-    hidden, body: {}, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [], inputs: [], triggers: [], profileHeader: null,
+    hidden, body: {}, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [], inputs: [], triggers: [], profileHeader: null, portals: {},
     createElement: element,
     addEventListener(type, fn) { listeners[type] = fn; },
+    getElementById(id) { return this.portals[id] || null; },
     querySelector(selector) { return selector === 'main header' ? this.profileHeader : this.dialog; },
     querySelectorAll(selector) {
       if (selector === 'input') return this.inputs;
-      if (selector === 'a,button,[role="button"]') return this.triggers;
+      if (selector.startsWith('a,button,')) return this.triggers;
       return selector.startsWith('button') ? this.buttons : this.alerts;
     }
   };
@@ -37,20 +38,23 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
     assign(url) { this.href = url; }
   };
   class Input {
+    querySelector() { return null; }
+    focus() { this.focused = true; document.activeElement = this; }
+    click() { this.clicked = true; }
     get value() { return this.currentValue || ''; }
     set value(value) { this.currentValue = value; }
     getClientRects() { return [{}]; }
     getAttribute(name) { return name === 'placeholder' ? 'Search' : null; }
-    dispatchEvent(event) { this.lastEvent = event; }
+    dispatchEvent(event) { this.lastEvent = event; (this.events ||= []).push(event); }
   }
   const context = {
-    document, location, URL, console, HTMLInputElement: Input, Event: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, innerWidth: 1200, innerHeight: 800,
+    document, location, URL, console, HTMLInputElement: Input, InputEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, Event: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, innerWidth: 1200, innerHeight: 800,
     window: { scrollBy() { scrolls++; }, addEventListener(type, fn, capture) { windowListeners.set(type, { fn, capture }); } },
     Date: { now: () => now }, Math: Object.assign(Object.create(Math), { random: () => random }),
     getComputedStyle: node => node.computedStyle || ({ visibility: 'visible', display: 'block' }),
     setTimeout(fn, delay) { const id = ++timerID; timers.set(id, { at: now + delay, fn }); return id; },
     clearTimeout(id) { timers.delete(id); },
-    chrome: { runtime: { async sendMessage(message) {
+    chrome: { runtime: { getManifest: () => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8')), async sendMessage(message) {
       messages.push(structuredClone(message));
       return message.type === 'follow:get' ? state : saveHandler(message);
     } } }

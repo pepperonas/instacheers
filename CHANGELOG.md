@@ -2,6 +2,23 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.3.2 — 2026-10-24
+
+### Fixed
+
+- Prefer the focused search input over a still-visible launcher or background search field. Activate and focus Instagram search fields instead of treating any existing input as an opened search. Support read-only launchers and notify controlled inputs with composed input and change events.
+- Recognize account results inside Explore's main search surface or in an explicitly associated result portal, matching account text, accessible labels, or usernames.
+- Reopen pending keyword searches after refresh with a fresh discovery timeout. Keep the edited keyword, account limit, and stopped status across refreshes without restarting stopped runs.
+- Persist recognized native search-route changes and continue stopping for unrelated navigation.
+- Route the page-follow button to keyword search when a term is entered. Do not reload an Explore post grid with no Follow buttons.
+- Show distinct status messages for an unopened search versus an empty result list, and display the installed extension version in the overlay.
+
+### Validation
+
+- Add regression tests for launchers, portal/inline search results, refresh recovery, retained settings, route changes, and the empty Explore-page reload loop.
+- Run the complete unit suite and syntax checks (`npm run check`), headless Chrome regressions (`npm run test:browser`), and `git diff --check`.
+- Browser search regression uses a local fixture shaped around the reported Explore layout; live Instagram DOM inspection is unavailable because JavaScript through Apple Events is disabled. No live follow actions were performed.
+
 ## 1.3.1 — 2026-10-24
 
 ### Fixed
