@@ -4,42 +4,57 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
 
-async function createHarness({ hidden = false, state = null, random = 0 } = {}) {
-  let now = 100_000, timerID = 0, reloads = 0, scrolls = 0;
+async function createHarness({ hidden = false, state = null, random = 0, startAt = 100_000, href = 'https://www.instagram.com/explore/people/' } = {}) {
+  let now = startAt, timerID = 0, reloads = 0, scrolls = 0;
   const timers = new Map();
   const messages = [];
-  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count'].map(id => [id, {}]));
+  let saveHandler = async () => null;
+  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit'].map(id => [id, {}]));
   nodes.scroll.checked = true;
+  nodes.keyword.value = ''; nodes.limit.value = '10';
   const root = { getElementById: id => nodes[id], append() {} };
   const element = () => ({ style: {}, append() {}, remove() {}, animate() {} });
   const host = { ...element(), attachShadow: () => root };
   const listeners = {};
   const document = {
-    hidden, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [],
+    hidden, body: {}, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [], inputs: [], triggers: [], profileHeader: null,
     createElement: element,
     addEventListener(type, fn) { listeners[type] = fn; },
-    querySelector() { return this.dialog; },
-    querySelectorAll(selector) { return selector.startsWith('button') ? this.buttons : this.alerts; }
+    querySelector(selector) { return selector === 'main header' ? this.profileHeader : this.dialog; },
+    querySelectorAll(selector) {
+      if (selector === 'input') return this.inputs;
+      if (selector === 'a,button,[role="button"]') return this.triggers;
+      return selector.startsWith('button') ? this.buttons : this.alerts;
+    }
   };
   const location = {
-    href: 'https://www.instagram.com/explore/people/', origin: 'https://www.instagram.com',
-    reload() { reloads++; }
+    href, origin: 'https://www.instagram.com',
+    reload() { reloads++; },
+    assign(url) { this.href = url; }
   };
+  class Input {
+    get value() { return this.currentValue || ''; }
+    set value(value) { this.currentValue = value; }
+    getClientRects() { return [{}]; }
+    getAttribute(name) { return name === 'placeholder' ? 'Search' : null; }
+    dispatchEvent(event) { this.lastEvent = event; }
+  }
   const context = {
-    document, location, URL, console, innerWidth: 1200, innerHeight: 800,
+    document, location, URL, console, HTMLInputElement: Input, Event: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, innerWidth: 1200, innerHeight: 800,
     window: { scrollBy() { scrolls++; } },
     Date: { now: () => now }, Math: Object.assign(Object.create(Math), { random: () => random }),
-    getComputedStyle: () => ({ visibility: 'visible', display: 'block' }),
+    getComputedStyle: node => node.computedStyle || ({ visibility: 'visible', display: 'block' }),
     setTimeout(fn, delay) { const id = ++timerID; timers.set(id, { at: now + delay, fn }); return id; },
     clearTimeout(id) { timers.delete(id); },
     chrome: { runtime: { async sendMessage(message) {
       messages.push(structuredClone(message));
-      return message.type === 'follow:get' ? state : null;
+      return message.type === 'follow:get' ? state : saveHandler(message);
     } } }
   };
   // The first element is the shadow host; later elements belong to animations.
   let createdHost = false;
   document.createElement = () => { if (!createdHost) { createdHost = true; return host; } return element(); };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'discovery.js'), 'utf8'), context);
   vm.runInNewContext(source, context);
   await Promise.resolve();
   const nextTimer = () => [...timers].sort((a, b) => a[1].at - b[1].at)[0];
@@ -53,11 +68,26 @@ async function createHarness({ hidden = false, state = null, random = 0 } = {}) 
   return {
     nodes, document, location, messages, timers, host,
     window: context.window,
+    setSaveHandler(fn) { saveHandler = fn; },
     run: source => vm.runInNewContext(source, context),
     get now() { return now; },
     get reloads() { return reloads; },
     get scrolls() { return scrolls; },
     get state() { return messages.filter(m => m.type === 'follow:set').at(-1)?.state; },
+    openSearch(results = []) {
+      const input = new Input();
+      const links = results.map(result => {
+        const item = typeof result === 'string' ? { name: result, href: '/' + result + '/' } : result;
+        return { innerText: item.name, href: item.href, getClientRects: () => item.hidden ? [] : [{}], closest: () => item.navigation ? {} : null };
+      });
+      input.parentElement = { querySelector: () => null, querySelectorAll: () => links };
+      document.inputs = [input];
+      return input;
+    },
+    async search(keyword = 'camping', limit = 10) {
+      nodes.keyword.value = keyword; nodes.limit.value = String(limit);
+      await nodes.search.onclick();
+    },
     async start() { await nodes.start.onclick(); },
     stop() { nodes.stop.onclick(); },
     escape() { listeners.keydown({ key: 'Escape' }); },

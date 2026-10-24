@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "InstaCheers",
-  "version": "1.2.3",
-  "description": "Instagram follow clicker with random 5–15 second delays and automatic resume after page reloads.",
+  "version": "1.3.0",
+  "description": "Find Instagram accounts by keyword and follow them with random delays and resumable profile queues.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -22,6 +22,7 @@
         "https://instagram.com/*"
       ],
       "js": [
+        "discovery.js",
         "content.js"
       ],
       "run_at": "document_idle"

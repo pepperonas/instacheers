@@ -1,6 +1,6 @@
 # InstaCheers
 
-A lightweight Chrome extension that clicks Instagram's **Follow** buttons with random delays and a beer-themed animation. Built with plain JavaScript and Chrome Manifest V3; no build step or external dependencies.
+A lightweight Chrome extension that finds Instagram accounts by keyword and clicks **Follow** with random delays and a beer-themed animation. Built with plain JavaScript and Chrome Manifest V3; no build step or external dependencies.
 
 ## Install or update
 
@@ -15,6 +15,24 @@ A lightweight Chrome extension that clicks Instagram's **Follow** buttons with r
 To update an existing installation, replace the files or pull the latest changes, click the extension's reload button in `chrome://extensions`, then reload Instagram. If you installed an earlier version as **Cheers Mate** from a `cheers-mate` folder, remove the old unpacked extension and load the renamed `instacheers` folder, then refresh Instagram. The same applies to the former **Folgen-Klicker** extension.
 
 ## Usage
+
+### Search for accounts and follow them
+
+1. Open Instagram in Chrome and sign in.
+2. Click the **InstaCheers** extension icon, then **Open controls**.
+3. Enter a term such as `camping` in **Find accounts**.
+4. Set **Maximum accounts** (default: 10, range: 1–50).
+5. Click **Search and follow**. InstaCheers opens Instagram's normal search, enters the term, and waits for matching account links.
+6. The extension visits the collected profiles in the same tab and clicks the profile header's **Follow** button when available. Accounts already marked **Following** or **Requested** are skipped. It stops when the queue is complete.
+7. Click **Stop**, press **Escape** while the Instagram tab has focus, or close the controls to cancel.
+
+Search uses a snapshot of the visible account links in Instagram's search panel whose text contains your keyword, ignoring case. It does not infer a profile's interests, search post captions or hashtags, or crawl every result. The account limit caps profiles visited, including accounts skipped because you already follow them; fewer results may be available. Only the profile header is used for follow clicks, excluding suggested accounts elsewhere on a profile.
+
+The search term, queued profile paths, expected destination, and click deadline are saved before each profile navigation, allowing the run to continue when the page loads. Unexpected navigation stops the run. If no matching search results or profile controls can be identified within 20 seconds, the run stops with a message. Changing the search term directly on Instagram also stops discovery. The existing error and dialog checks remain active when following profiles.
+
+Search panel and profile-header recognition currently target English and German labels. Instagram layout variants may not be recognized; if search is not found, open **Search** on Instagram and try again. This workflow is covered by local tests but has not been validated against a signed-in Instagram account.
+
+### Follow suggestions on the current page
 
 1. Open Instagram and navigate to account suggestions.
 2. Click the **InstaCheers** extension icon, then **Open controls**.
@@ -31,7 +49,7 @@ The controls show a countdown and the total number of click attempts. A beer gla
 - Tracks processed profile paths when available to avoid repeating the same account within a tab session.
 - Scrolls automatically when enabled. After roughly eight seconds without a new matching button, it reloads the page and resumes. After three reloads without new clicks, it stops.
 - Continues clicking, scrolling, and reloading when you switch to another tab. The extension does not pause based on tab visibility.
-- Stops when the page URL changes, a dialog opens, or a supported visible Instagram error message is detected.
+- Stops on unexpected URL changes, dialogs during following, or supported visible Instagram error messages. Search mode permits its own search panel and saves each expected profile navigation before opening it.
 - After the full delay, checks the previous button if it is still attached to the page. If it still says **Follow** or **Folgen**, the run stops for review.
 - Keeps the run state and counter across reloads of the same tab and URL. Closing the tab removes its state; restarting the browser does not restart a run.
 
@@ -41,9 +59,9 @@ Instagram can change its interface or restrict actions. Delays do not remove an 
 
 ## Privacy and permissions
 
-The extension uses no external services, analytics, or additional network requests. Clicking a button still triggers Instagram's own behavior and requests.
+The extension uses no external services or analytics and makes no private API calls. Search input, profile navigation, and follow clicks use Instagram's normal interface and trigger Instagram's own network requests.
 
-Run state is stored in Chrome's session storage, keyed by tab ID. It includes the current URL, processed profile paths, click count, reload count, next click time, and scrolling preference. It is cleared when the tab closes or the browser restarts.
+Run state is stored in Chrome's session storage, keyed by tab ID. It includes the current URL, processed profile paths, click count, reload count, next click time, and scrolling preference. During a keyword run it also includes the search term, account limit, remaining profile queue, current target, and follow-confirmation state. It is cleared when the tab closes or the browser restarts.
 
 | Permission or scope | Purpose |
 | --- | --- |
@@ -58,7 +76,8 @@ Run state is stored in Chrome's session storage, keyed by tab ID. It includes th
 | --- | --- |
 | `manifest.json` | Extension metadata, permissions, popup, and content-script configuration. |
 | `background.js` | Service worker that reads and writes per-tab session state and cleans up closed tabs. |
-| `content.js` | On-page controls, button detection, timing, scrolling, reloads, and animations. |
+| `content.js` | On-page controls, discovery workflow, button detection, timing, scrolling, reloads, and animations. |
+| `discovery.js` | Native Instagram search input and scoped account-link discovery. |
 | `popup.html` | Extension popup layout and English interface text. |
 | `popup.js` | Active-tab validation and control injection. |
 | `test/` | Unit tests and a mocked page/timer harness. |
@@ -76,9 +95,9 @@ With Node.js 18 or later and npm installed, run the syntax checks and unit tests
 npm run check
 ```
 
-Run only the unit tests with `npm test`. No `npm install` is required. Tests execute the actual scripts with a mocked DOM, Chrome session storage, and deterministic timers. They cover visible and hidden tabs, tab switching, random-delay boundaries, delayed callbacks without click bursts, stop controls, error handling, duplicate detection, scrolling, reload recovery, per-tab storage, and version consistency. They do not click a real Instagram account.
+Run only the unit tests with `npm test`. No `npm install` is required. Tests execute the actual scripts with a mocked DOM, Chrome session storage, and deterministic timers. They cover visible and hidden tabs, tab switching, random-delay boundaries, delayed callbacks without click bursts, stop controls, error handling, duplicate detection, scrolling, reload recovery, per-tab storage, version consistency, keyword matching, queued profile navigation, following-state skips, and search cancellation. They do not click a real Instagram account.
 
-To check the installed extension manually, reload it in `chrome://extensions` and refresh Instagram. Start a run, switch to another tab, wait, and return to inspect the attempt counter. Stop the run and confirm the counter stays unchanged. Background timing can be affected by Chrome's resource management.
+To check the installed extension manually, reload it in `chrome://extensions` and refresh Instagram. Start a run, switch to another tab, wait, and return to inspect the attempt counter. Stop the run and confirm the counter stays unchanged. Then enter `camping`, set a small account limit, and start **Search and follow**. Check that the native search receives the term, each visited profile matches a collected result, the queue resumes after navigation, and Stop prevents further navigation. Background timing can be affected by Chrome's resource management.
 
 ## Versioning
 
