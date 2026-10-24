@@ -2,6 +2,7 @@
   const labels = /^(search|search instagram|search accounts|search input|suche|suchen|instagram durchsuchen)(?:…|\.{3})?$/i;
   const reserved = new Set(['accounts', 'about', 'api', 'challenge', 'developer', 'direct', 'directory', 'emails', 'explore', 'legal', 'p', 'privacy', 'reel', 'reels', 'stories', 'web', 'your_activity']);
   const text = node => (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim();
+  const resultRoots = new WeakMap();
   const visible = node => node.getClientRects().length && getComputedStyle(node).visibility === 'visible';
 
   function profilePath(href) {
@@ -61,20 +62,53 @@
     const controlled = (node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '').split(/\s+/).filter(Boolean);
     for (const id of controlled) {
       const results = document.getElementById(id);
-      if (results && visible(results)) return paths(results, keyword, limit);
+      if (results && visible(results)) { resultRoots.set(node, results); return paths(results, keyword, limit); }
     }
     let container = node.parentElement;
     for (let depth = 0; container && depth < 12; depth++, container = container.parentElement) {
-      if (container === document.body || container === document.documentElement || container.querySelector('nav,[role="navigation"]')) return [];
+      if (container === document.body || container === document.documentElement) return [];
       // An Explore search can live inside main; do not reject that search surface.
       // Stop before expanding a sidebar search to the unrelated main content.
       const main = container.querySelector('main');
-      if (main && !main.contains(node)) return [];
+      if (main?.contains && !main.contains(node)) {
+        if (node.closest?.('header,[role="search"]') && node.value === keyword) {
+          resultRoots.set(node, main); return paths(main, keyword, limit);
+        }
+        return [];
+      }
+      if (container.querySelector('nav,[role="navigation"]')) return [];
       const found = paths(container, keyword, limit);
-      if (found.length) return found;
+      if (found.length) { resultRoots.set(node, container); return found; }
     }
     return [];
   }
 
-  window.__instaCheersDiscovery = { profilePath, input, open, submit, collect };
+  function scroll(node) {
+    const controlled = (node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '').split(/\s+/).filter(Boolean);
+    const results = controlled.map(id => document.getElementById(id)).find(Boolean) || resultRoots.get(node);
+    // Prefer the results' own scroll container over the outer page.
+    for (let parent = results || node.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+      if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(getComputedStyle(parent).overflowY)) {
+        parent.scrollBy({ top: Math.max(450, parent.clientHeight * .8), behavior: 'instant' });
+        return true;
+      }
+    }
+    const page = document.scrollingElement;
+    if (page && page.scrollHeight > page.clientHeight) {
+      page.scrollBy({ top: Math.max(450, page.clientHeight * .8), behavior: 'instant' });
+      return true;
+    }
+    return false;
+  }
+
+  function alternative() {
+    const tab = [...document.querySelectorAll('button,[role="tab"],[role="button"],a')].find(node =>
+      visible(node) && /^(non[- ]personali[sz]ed|nicht personalisiert)$/i.test(text(node))
+    );
+    if (!tab) return false;
+    if (tab.getAttribute('aria-selected') !== 'true') tab.click();
+    return true;
+  }
+
+  window.__instaCheersDiscovery = { profilePath, input, open, submit, collect, scroll, alternative };
 })();

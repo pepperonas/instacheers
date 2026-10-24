@@ -37,10 +37,10 @@ const fixture = `<!doctype html><html><body>
   </script>
 </body></html>`;
 
-async function site(t) {
+async function site(t, render = () => fixture) {
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    response.end(fixture);
+    response.end(render(request.url));
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -85,4 +85,69 @@ test('activates Explore search, prefers the focused dialog input over its visibl
   assert.deepEqual(saved.discovery.queue, ['/camping.two/']);
   assert.equal(saved.count, 0);
   assert.equal(saved.discovery.limit, 100);
+});
+
+test('skips an already-followed profile and continues to a new account without clicking the relationship control', { timeout: 30000 }, async t => {
+  function profile(existing) {
+    return `<!doctype html><html><body><main><header>
+      <button id="relationship" ${existing ? 'disabled' : ''}>${existing ? 'Gefolgt Dropdownsymbol' : 'Follow'}</button>
+      </header></main><script>
+      Math.random = () => 0;
+      window.chrome = {runtime: {
+        getManifest: () => ({version:'test'}),
+        async sendMessage(message) {
+          if (message.type === 'follow:set') localStorage.setItem('run', JSON.stringify(message.state));
+          return JSON.parse(localStorage.getItem('run') || 'null');
+        }
+      }};
+      document.getElementById('relationship').onclick = event => {
+        localStorage.setItem('${existing ? 'existingClicks' : 'newClicks'}', String(Number(localStorage.getItem('${existing ? 'existingClicks' : 'newClicks'}') || 0) + 1));
+        event.currentTarget.textContent = 'Following';
+      };
+      </script></body></html>`;
+  }
+  const origin = await site(t, url => {
+    if (url === '/camping.one/') return profile(true);
+    if (url === '/camping.two/') return profile(false);
+    return fixture.replace('<script>', '<script>Math.random = () => 0;');
+  });
+  const chrome = await browser(t);
+  await chrome.send('Page.navigate', { url: origin + '/explore/' });
+  await chrome.evaluate(`new Promise(resolve => {
+    if (document.readyState === 'complete') resolve();
+    else window.addEventListener('load', resolve, {once:true});
+  })`);
+  await inject(chrome);
+  await chrome.evaluate(`
+    const overlay = [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot;
+    overlay.getElementById('keyword').value = 'camping';
+    overlay.getElementById('limit').value = '2';
+    overlay.getElementById('search').click();
+  `);
+  let injectedPath = '/explore/', outcome;
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    try {
+      const pathname = await chrome.evaluate('location.pathname');
+      if (pathname !== injectedPath && /^\/camping\.(one|two)\/$/.test(pathname)) {
+        await chrome.evaluate(`new Promise(resolve => {
+          if (document.readyState === 'complete') resolve();
+          else window.addEventListener('load', resolve, {once:true});
+        })`);
+        await inject(chrome);
+        injectedPath = pathname;
+      }
+      outcome = await chrome.evaluate(`({existing:Number(localStorage.getItem('existingClicks') || 0),new:Number(localStorage.getItem('newClicks') || 0),state:JSON.parse(localStorage.getItem('run'))})`);
+      if (outcome.new === 1 && outcome.state.count === 1) break;
+    } catch { /* Page navigation replaces the current script context. */ }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.equal(outcome?.existing, 0);
+  assert.equal(outcome?.new, 1);
+  assert.equal(outcome.state.count, 1);
+  assert.equal(outcome.state.discovery.skipped, 1);
+  assert.equal(outcome.state.discovery.inspected, 2);
+  await chrome.evaluate(`
+    [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot.getElementById('stop').click();
+  `);
 });

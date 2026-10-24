@@ -46,7 +46,7 @@ test('does not broaden search discovery to the whole page', async () => {
   await h.search();
   await h.advance(20000);
   assert.equal(h.state.running, false);
-  assert.match(h.nodes.status.textContent, /No matching accounts/);
+  assert.match(h.nodes.status.textContent, /No matching account/);
   assert.equal(h.location.href, 'https://www.instagram.com/explore/people/');
 });
 
@@ -213,7 +213,7 @@ test('a complete search resumes across multiple profile page loads and stops at 
   assert.equal(secondButton.clicks, 0);
   assert.equal(second.state.count, 1);
   assert.equal(second.state.running, false);
-  assert.match(second.nodes.status.textContent, /Search complete/);
+  assert.match(second.nodes.status.textContent, /Account limit reached/);
   assert.equal(second.location.href, 'https://www.instagram.com/camping.two/');
 });
 
@@ -401,4 +401,122 @@ test('an out-of-range account count focuses the invalid field and explains the s
   h.nodes.limit.oninput();
   assert.equal(h.nodes.limit.attributes['aria-invalid'], undefined);
   assert.equal(h.nodes.status.textContent, 'Ready to search.');
+});
+
+for (const label of ['Following ▾', 'Gefolgt Dropdownsymbol', 'Angefragt ✓', 'Requested pending']) {
+  test(`skips an existing relationship labeled ${label}, including disabled controls`, async () => {
+    const h = await createProfileHarness({ state: profileState() });
+    const button = h.addButton(label, { disabled: true });
+    h.document.profileHeader = { querySelectorAll: () => [button] };
+    await h.advance(2500);
+    assert.equal(button.clicks, 0);
+    assert.equal(h.state.count, 0);
+    assert.equal(h.state.discovery.skipped, 1);
+    assert.equal(h.location.href, 'https://www.instagram.com/camping.two/');
+    assert.match(h.nodes.progress.textContent, /1 skipped/);
+  });
+}
+
+test('recognizes an aria-labeled Following control with no visible text', async () => {
+  const h = await createProfileHarness({ state: profileState() });
+  const button = h.addButton('');
+  button.getAttribute = name => name === 'aria-label' ? 'Following camping.one' : null;
+  h.document.profileHeader = { querySelectorAll: () => [button] };
+  await h.advance(2500);
+  assert.equal(button.clicks, 0);
+  assert.equal(h.state.discovery.skipped, 1);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.two/');
+});
+
+test('returns to the saved search after skipping the last profile instead of ending the run', async () => {
+  const state = profileState();
+  state.discovery.queue = [];
+  state.discovery.searchURL = 'https://www.instagram.com/explore/';
+  state.discovery.inspected = 1;
+  const h = await createProfileHarness({ state });
+  const button = h.addButton('Following ▾');
+  h.document.profileHeader = { querySelectorAll: () => [button] };
+  await h.advance(2500);
+  assert.equal(button.clicks, 0);
+  assert.equal(h.state.running, true);
+  assert.equal(h.state.discovery.phase, 'search');
+  assert.equal(h.state.discovery.skipped, 1);
+  assert.equal(h.state.startURL, state.discovery.searchURL);
+  assert.equal(h.location.href, state.discovery.searchURL);
+});
+
+function link(name) {
+  return { innerText: name, href: '/' + name + '/', getClientRects: () => [{}], closest: () => null };
+}
+
+test('keeps processed IDs after a stopped-run refresh and scrolls past known results to a new account', async () => {
+  const h = await createHarness({ state: { running: false, ids: ['/camping.old/'], keyword: 'camping' } });
+  const input = h.openSearch(['camping.old']);
+  const results = input.parentElement;
+  Object.assign(results, {
+    scrollHeight: 1000, clientHeight: 100, computedStyle: { overflowY: 'auto' },
+    scrollBy() { results.querySelectorAll = () => [link('camping.old'), link('camping.new')]; }
+  });
+  await h.search();
+  await h.advance(8000);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.new/');
+  assert.ok(h.state.ids.includes('/camping.old/'));
+  assert.equal(h.state.count, 0);
+});
+
+test('tries non-personalized search once when visible accounts were already processed', async () => {
+  const h = await createHarness({ state: { running: false, ids: ['/camping.old/'] } });
+  const input = h.openSearch(['camping.old']);
+  let switches = 0;
+  h.document.tabs = [{
+    innerText: 'Nicht personalisiert', getClientRects: () => [{}], getAttribute: () => 'false',
+    click() { switches++; input.parentElement.querySelectorAll = () => [link('camping.new')]; }
+  }];
+  await h.search();
+  await h.advance(8000);
+  assert.equal(switches, 1);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.new/');
+  assert.equal(h.state.discovery.alternative, true);
+});
+
+test('reports exhausted known results distinctly and bounds unsuccessful scrolling', async () => {
+  const h = await createHarness({ state: { running: false, ids: ['/camping.old/'] } });
+  const input = h.openSearch(['camping.old']);
+  let scrolls = 0;
+  Object.assign(input.parentElement, {
+    scrollHeight: 1000, clientHeight: 100, computedStyle: { overflowY: 'auto' },
+    scrollBy() { scrolls++; }
+  });
+  await h.search();
+  await h.advance(15000);
+  assert.equal(scrolls, 3);
+  assert.equal(h.state.running, false);
+  assert.match(h.nodes.status.textContent, /No new accounts remain/);
+  assert.doesNotMatch(h.nodes.status.textContent, /No matching/);
+});
+
+test('does not count a confirmed new follow as an already-followed skip', async () => {
+  const state = profileState({ count: 1, ids: ['/camping.one/'] });
+  state.discovery.awaitingConfirmation = true;
+  const h = await createProfileHarness({ state });
+  const button = h.addButton('Following ▾');
+  h.document.profileHeader = { querySelectorAll: () => [button] };
+  await h.advance(2500);
+  assert.equal(button.clicks, 0);
+  assert.equal(h.state.discovery.skipped || 0, 0);
+  assert.equal(h.state.count, 1);
+});
+
+test('reads result rows from a main sibling of a search header without including navigation links', async () => {
+  const h = await createHarness();
+  const input = h.openSearch();
+  input.closest = () => ({});
+  const main = { contains: () => false, querySelectorAll: () => [link('camping.new')] };
+  input.parentElement = {
+    querySelector: selector => selector === 'main' ? main : {},
+    querySelectorAll: () => []
+  };
+  await h.search();
+  await h.advance(6000);
+  assert.equal(h.location.href, 'https://www.instagram.com/camping.new/');
 });

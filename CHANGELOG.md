@@ -2,6 +2,23 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.4.1 — 2026-10-24
+
+### Fixed
+
+- Recognize existing Following/Requested relationships with dropdown suffixes, accessible labels, or disabled status controls, and skip them without clicking.
+- Continue looking for unprocessed accounts after completing a profile batch by returning to its saved native search URL.
+- When a search only shows processed accounts, try non-personalized results when available and scroll the result container within bounded retries. Keep the configured profile-visit limit, click delays, and stop controls.
+- Preserve processed profile paths across stopped-run refreshes, distinguish exhausted known results from undetected account links, and show checked/skipped counts.
+- Recognize account results in a main sibling of a search header without including navigation links.
+
+### Validation
+
+- Add regressions for relationship-label variants, skip statistics, return-to-search navigation, processed-ID recovery, additional results through scrolling or the non-personalized tab, and bounded exhaustion.
+- Add a multi-page headless Chrome regression that skips an already-followed account and follows the next new account without clicking the existing relationship control.
+- Run `npm run check`, `npm run test:browser`, and `git diff --check`.
+- Browser tests use local fixtures. No live Instagram follow actions were performed.
+
 ## 1.4.0 — 2026-10-24
 
 ### Added

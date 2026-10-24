@@ -9,7 +9,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const timers = new Map();
   const messages = [];
   let saveHandler = async () => null;
-  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit', 'version'].map(id => [id, {
+  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit', 'version', 'progress'].map(id => [id, {
     attributes: {},
     setAttribute(name, value) { this.attributes[name] = value; },
     removeAttribute(name) { delete this.attributes[name]; },
@@ -26,7 +26,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const host = { ...element(), attachShadow: () => root };
   const listeners = {};
   const document = {
-    hidden, body: {}, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [], inputs: [], triggers: [], profileHeader: null, portals: {},
+    hidden, body: {}, documentElement: { append() {} }, buttons: [], dialog: null, alerts: [], inputs: [], triggers: [], profileHeader: null, portals: {}, tabs: [],
     createElement: element,
     addEventListener(type, fn) { listeners[type] = fn; },
     getElementById(id) { return this.portals[id] || null; },
@@ -34,6 +34,7 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
     querySelectorAll(selector) {
       if (selector === 'input') return this.inputs;
       if (selector.startsWith('a,button,')) return this.triggers;
+      if (selector === 'button,[role="tab"],[role="button"],a') return this.tabs;
       return selector.startsWith('button') ? this.buttons : this.alerts;
     }
   };
