@@ -22,7 +22,7 @@ To update an existing installation, replace the files or pull the latest changes
 
 1. Open Instagram in Chrome and sign in.
 2. Click the **InstaCheers** extension icon, then **Open controls**.
-3. Enter a term such as `camping` in **Find accounts**.
+3. Enter a term such as `camping` in **Find accounts**. A leading `#` is removed automatically: `#vanlife` becomes the account query `vanlife`, which is also shown in the overlay. This searches account names and result labels, rather than opening hashtag pages or collecting authors from hashtag posts.
 4. Set **Maximum accounts** (default: 10, range: 1–100).
 5. Click **Search and follow**. InstaCheers activates Instagram's search field (including read-only search launchers), focuses its editable input, enters the term, and waits for matching account links. The status distinguishes waiting for the search field from collecting results.
 6. The extension visits the collected profiles in the same tab and clicks the profile header's **Follow** button when available. Accounts already marked **Following** or **Requested** are skipped without clicking their relationship controls. After a batch is processed, the extension returns to the saved search for more unprocessed accounts. It stops when the account limit is reached or no new results remain.

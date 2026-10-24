@@ -1,6 +1,6 @@
 {
   "name": "instacheers",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "description": "Instagram follow clicker Chrome extension",
   "scripts": {

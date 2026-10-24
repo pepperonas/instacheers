@@ -5,7 +5,7 @@
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647';
   const root = host.attachShadow({mode:'open'});
-  root.innerHTML = `<style>:host{all:initial}section{width:290px;max-height:calc(100vh - 80px);overflow:auto;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}input[aria-invalid="true"]{outline:2px solid #ff8b9c}input[type="search"],input[type="number"]{box-sizing:border-box;width:100%;padding:8px;margin-top:5px;border:1px solid #454c6a;border-radius:6px;background:#1d263a;color:white}#search{margin:0 0 8px}</style><section><button id="close" aria-label="Close">×</button><h2>InstaCheers <small id="version" style="font-size:11px;color:#c4cbe0"></small></h2><p>Random 5–15 second delays · Escape to stop</p><label>Find accounts<input id="keyword" type="search" maxlength="100" placeholder="e.g. camping"></label><label>Maximum accounts (1–${maxAccounts})<input id="limit" type="number" min="1" max="${maxAccounts}" step="1" value="10"></label><button id="search">Search and follow</button><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Follow this page</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p><p id="progress">0 profiles checked · 0 skipped</p></section>`;
+  root.innerHTML = `<style>:host{all:initial}section{width:290px;max-height:calc(100vh - 80px);overflow:auto;padding:18px;border:1px solid #454c6a;border-radius:14px;background:#111725;color:#fff;font:14px system-ui;box-shadow:0 8px 40px #0008}h2{font-size:18px;margin:0 0 12px}p{line-height:1.5;color:#c4cbe0}button{border:0;border-radius:8px;padding:10px 14px;margin-right:7px;cursor:pointer;background:#5262ff;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}#close{float:right;background:transparent;margin:0;padding:0 4px;font-size:22px}label{display:block;margin:12px 0}input[aria-invalid="true"]{outline:2px solid #ff8b9c}input[type="search"],input[type="number"]{box-sizing:border-box;width:100%;padding:8px;margin-top:5px;border:1px solid #454c6a;border-radius:6px;background:#1d263a;color:white}#search{margin:0 0 8px}</style><section><button id="close" aria-label="Close">×</button><h2>InstaCheers <small id="version" style="font-size:11px;color:#c4cbe0"></small></h2><p>Random 5–15 second delays · Escape to stop</p><label>Find accounts<input id="keyword" type="search" maxlength="100" placeholder="e.g. camping" aria-describedby="keyword-hint"></label><p id="keyword-hint" style="font-size:12px;margin-top:-6px">Account search: #vanlife becomes vanlife.</p><label>Maximum accounts (1–${maxAccounts})<input id="limit" type="number" min="1" max="${maxAccounts}" step="1" value="10"></label><button id="search">Search and follow</button><label><input id="scroll" type="checkbox" checked> Scroll automatically</label><button id="start">Follow this page</button><button id="stop" disabled>Stop</button><p id="status" role="status">Ready.</p><p id="count">0 click attempts</p><p id="progress">0 profiles checked · 0 skipped</p></section>`;
   document.documentElement.append(host);
   let running = false, timer = null, count = 0, empty = 0, startURL = '';
   let reloads = 0, generation = 0, nextAt = 0, previous = null;
@@ -251,15 +251,17 @@
   };
   $('search').onclick = async () => {
     if (running) return;
-    const keyword = $('keyword').value.trim();
+    const entered = $('keyword').value.trim();
+    const keyword = searchAPI.normalizeKeyword(entered);
     const limit = Number($('limit').value);
-    if (!keyword || keyword.length > 100) { $('status').textContent = 'Enter a search term (1–100 characters).'; return; }
+    if (!keyword || entered.length > 100) { $('status').textContent = 'Enter a search term (1–100 characters).'; return; }
     $('limit').removeAttribute('aria-invalid');
     if (!Number.isInteger(limit) || limit < 1 || limit > maxAccounts) {
       $('limit').setAttribute('aria-invalid', 'true');
       $('limit').focus();
       $('status').textContent = `Choose a maximum of 1–${maxAccounts} accounts.`; return;
     }
+    $('keyword').value = keyword;
     if (!searchAPI?.open()) { $('status').textContent = 'Instagram search was not found. Open Search on Instagram and try again.'; return; }
     running = true; generation++; previous = null; empty = 0; reloads = 0;
     startURL = location.href;
@@ -270,6 +272,7 @@
     searchOpenedAt = Date.now(); submittedInput = null;
     nextAt = Math.max(nextAt, Date.now() + randomDelay());
     controls(true);
+    $('status').textContent = 'Searching accounts for “' + keyword + '” …';
     const token = generation;
     try { await save(); if (running && token === generation) timer = setTimeout(tick,1000); }
     catch (error) { stop('Error: ' + error.message); }
@@ -302,7 +305,7 @@
   window[key] = {show(){host.style.display = '';}};
   chrome.runtime.sendMessage({type:'follow:get'}).then(state => {
     if (!state || running) return;
-    $('keyword').value = state.keyword ?? state.discovery?.keyword ?? '';
+    $('keyword').value = searchAPI.normalizeKeyword(state.keyword ?? state.discovery?.keyword ?? '');
     $('limit').value = state.limit ?? state.discovery?.limit ?? '10';
     count = state.count || 0; $('count').textContent = count + ' click attempts';
     for (const id of state.ids || []) ids.add(id);
@@ -315,6 +318,10 @@
     }
     running = true; count = state.count || 0; startURL = state.startURL; reloads = state.reloads || 0; nextAt = state.nextAt || Date.now() + randomDelay();
     discovery = state.discovery || null;
+    if (discovery) {
+      discovery.keyword = searchAPI.normalizeKeyword(discovery.keyword);
+      if (!discovery.keyword) { stop('Enter a search term (1–100 characters).'); return; }
+    }
     if (discovery?.phase === 'search') {
       discovery.startedAt = Date.now(); searchOpenedAt = 0;
       searchScrolls = 0; moreResultsAt = Date.now(); alternativeApplied = false;

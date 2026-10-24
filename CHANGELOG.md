@@ -2,6 +2,21 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.4.2 — 2026-10-24
+
+### Fixed
+
+- Normalize leading hashtag markers before submitting account searches and matching result links: `#vanlife` and `＃vanlife` become `vanlife`.
+- Show the normalized account query in the overlay, explain the behavior beside the input, and normalize saved pending searches when resuming.
+- Reject hash-only inputs and continue excluding hashtag pages from followable profile links.
+
+### Validation
+
+- Add unit regressions for leading markers, whitespace, hash-only inputs, resumed queries, and hashtag-only results.
+- Add a Chrome regression where `#vanlife` returns hashtag-only links while `vanlife` returns account profiles; verify the extension opens an account profile with a normalized query.
+- Run `npm run check`, `npm run test:browser`, and `git diff --check`.
+- Tests use local fixtures; live Instagram behavior has not been verified. This change provides account-name search for hashtag-style input, not hashtag-post author discovery.
+
 ## 1.4.1 — 2026-10-24
 
 ### Fixed

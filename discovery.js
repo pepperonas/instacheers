@@ -5,6 +5,10 @@
   const resultRoots = new WeakMap();
   const visible = node => node.getClientRects().length && getComputedStyle(node).visibility === 'visible';
 
+  function normalizeKeyword(value) {
+    return String(value || '').trim().replace(/^(?:[#＃]\s*)+/u, '').trim();
+  }
+
   function profilePath(href) {
     try {
       const url = new URL(href, location.href);
@@ -35,6 +39,8 @@
   }
 
   function submit(node, keyword) {
+    keyword = normalizeKeyword(keyword);
+    if (!keyword) return false;
     // Search launchers can look like inputs, but only the activated field is editable.
     if (node.readOnly || node.disabled) return false;
     node.focus();
@@ -48,7 +54,7 @@
   }
 
   function paths(container, keyword, limit) {
-    const query = keyword.toLocaleLowerCase();
+    const query = normalizeKeyword(keyword).toLocaleLowerCase();
     const found = [...container.querySelectorAll('a[href]')].filter(link =>
       visible(link) && !link.closest('nav,header,footer,[role="navigation"]')
     ).map(link => ({ link, path: profilePath(link.href) })).filter(item => item.path &&
@@ -58,6 +64,8 @@
   }
 
   function collect(node, keyword, limit) {
+    keyword = normalizeKeyword(keyword);
+    if (!keyword) return [];
     // Search results may be rendered in a portal rather than under the input.
     const controlled = (node.getAttribute('aria-controls') || node.getAttribute('aria-owns') || '').split(/\s+/).filter(Boolean);
     for (const id of controlled) {
@@ -110,5 +118,5 @@
     return true;
   }
 
-  window.__instaCheersDiscovery = { profilePath, input, open, submit, collect, scroll, alternative };
+  window.__instaCheersDiscovery = { normalizeKeyword, profilePath, input, open, submit, collect, scroll, alternative };
 })();

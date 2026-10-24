@@ -151,3 +151,35 @@ test('skips an already-followed profile and continues to a new account without c
     [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot.getElementById('stop').click();
   `);
 });
+
+test('a #vanlife entry becomes a vanlife account search instead of getting stuck on hashtag-only results', { timeout: 30000 }, async t => {
+  const topicFixture = fixture.replaceAll('camping', 'vanlife')
+    .replace("field.value === 'vanlife'", "field.value.replace(/^#/, '') === 'vanlife'")
+    .replace('results.innerHTML = ', `results.innerHTML = field.value.startsWith('#') ? '<a href="/explore/tags/vanlife/">#vanlife</a>' : `);
+  const origin = await site(t, () => topicFixture);
+  const chrome = await browser(t);
+  await chrome.send('Page.navigate', { url: origin + '/explore/' });
+  await chrome.evaluate(`new Promise(resolve => {
+    if (document.readyState === 'complete') resolve();
+    else window.addEventListener('load', resolve, {once:true});
+  })`);
+  await inject(chrome);
+  await chrome.evaluate(`
+    const overlay = [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot;
+    overlay.getElementById('keyword').value = '#vanlife';
+    overlay.getElementById('search').click();
+  `);
+  const deadline = Date.now() + 15000;
+  let pathname;
+  while (Date.now() < deadline) {
+    try { pathname = await chrome.evaluate('location.pathname'); } catch { /* Navigation replaces the context. */ }
+    if (pathname === '/vanlife.one/') break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.equal(pathname, '/vanlife.one/');
+  assert.equal(await chrome.evaluate(`localStorage.getItem('query')`), 'vanlife');
+  const state = await chrome.evaluate(`JSON.parse(localStorage.getItem('run'))`);
+  assert.equal(state.keyword, 'vanlife');
+  assert.equal(state.discovery.keyword, 'vanlife');
+  assert.equal(state.discovery.current, '/vanlife.one/');
+});

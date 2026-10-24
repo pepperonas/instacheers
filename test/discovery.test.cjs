@@ -520,3 +520,49 @@ test('reads result rows from a main sibling of a search header without including
   await h.advance(6000);
   assert.equal(h.location.href, 'https://www.instagram.com/camping.new/');
 });
+
+for (const entered of ['#vanlife', ' #vanlife ', '＃vanlife', '## vanlife']) {
+  test(`normalizes ${JSON.stringify(entered)} before native account search and matching`, async () => {
+    const h = await createHarness();
+    const input = h.openSearch(['vanlife.one']);
+    await h.search(entered);
+    await h.advance(6000);
+    assert.equal(input.value, 'vanlife');
+    assert.equal(h.nodes.keyword.value, 'vanlife');
+    assert.equal(h.state.keyword, 'vanlife');
+    assert.equal(h.state.discovery.keyword, 'vanlife');
+    assert.equal(h.location.href, 'https://www.instagram.com/vanlife.one/');
+  });
+}
+
+test('rejects a hash-only query before opening Instagram search', async () => {
+  const h = await createHarness();
+  for (const entered of ['#', '＃', '##  ']) {
+    await h.search(entered);
+    assert.equal(h.state, undefined);
+    assert.equal(h.timers.size, 0);
+    assert.match(h.nodes.status.textContent, /Enter a search term/);
+  }
+});
+
+test('migrates a resumed hashtag query to an account keyword', async () => {
+  const h = await createHarness({ state: {
+    running: true, startURL: 'https://www.instagram.com/explore/people/', keyword: '#vanlife',
+    discovery: { keyword: '#vanlife', limit: 10, phase: 'search', startedAt: 1, queue: [] }
+  } });
+  const input = h.openSearch(['vanlife.one']);
+  await h.advance(7500);
+  assert.equal(input.value, 'vanlife');
+  assert.equal(h.location.href, 'https://www.instagram.com/vanlife.one/');
+  assert.equal(h.state.discovery.keyword, 'vanlife');
+});
+
+test('never treats a hashtag result as a followable profile', async () => {
+  const h = await createHarness();
+  h.openSearch([{ name: '#vanlife', href: '/explore/tags/vanlife/' }]);
+  await h.search('#vanlife');
+  await h.advance(20000);
+  assert.equal(h.state.running, false);
+  assert.equal(h.location.href, 'https://www.instagram.com/explore/people/');
+  assert.equal(h.state.count, 0);
+});
