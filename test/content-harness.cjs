@@ -9,7 +9,12 @@ async function createHarness({ hidden = false, state = null, random = 0, startAt
   const timers = new Map();
   const messages = [];
   let saveHandler = async () => null;
-  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit', 'version'].map(id => [id, {}]));
+  const nodes = Object.fromEntries(['close', 'scroll', 'start', 'stop', 'status', 'count', 'search', 'keyword', 'limit', 'version'].map(id => [id, {
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; },
+    removeAttribute(name) { delete this.attributes[name]; },
+    focus() { this.focused = true; }
+  }]));
   nodes.scroll.checked = true;
   nodes.keyword.value = ''; nodes.limit.value = '10';
   const rootListeners = new Map(), windowListeners = new Map();

@@ -1,5 +1,7 @@
 # InstaCheers
 
+<img src="icons/icon128.png" alt="InstaCheers camera and follow icon" width="64" height="64">
+
 A lightweight Chrome extension that finds Instagram accounts by keyword and clicks **Follow** with random delays and a beer-themed animation. Built with plain JavaScript and Chrome Manifest V3; no build step or external dependencies.
 
 ## Install or update
@@ -21,12 +23,12 @@ To update an existing installation, replace the files or pull the latest changes
 1. Open Instagram in Chrome and sign in.
 2. Click the **InstaCheers** extension icon, then **Open controls**.
 3. Enter a term such as `camping` in **Find accounts**.
-4. Set **Maximum accounts** (default: 10, range: 1–50).
+4. Set **Maximum accounts** (default: 10, range: 1–100).
 5. Click **Search and follow**. InstaCheers activates Instagram's search field (including read-only search launchers), focuses its editable input, enters the term, and waits for matching account links. The status distinguishes waiting for the search field from collecting results.
 6. The extension visits the collected profiles in the same tab and clicks the profile header's **Follow** button when available. Accounts already marked **Following** or **Requested** are skipped. It stops when the queue is complete.
 7. Click **Stop**, press **Escape** while the Instagram tab has focus, or close the controls to cancel.
 
-Search uses a snapshot of the visible account links in Instagram's search panel whose text, accessible label, or profile username contains your keyword, ignoring case. It does not infer a profile's interests, search post captions or hashtags, or crawl every result. The account limit caps profiles visited, including accounts skipped because you already follow them; fewer results may be available. Only the profile header is used for follow clicks, excluding suggested accounts elsewhere on a profile.
+Search uses a snapshot of the visible account links in Instagram's search panel whose text, accessible label, or profile username contains your keyword, ignoring case. It does not infer a profile's interests, search post captions or hashtags, or crawl every result. The account limit caps profiles visited, including accounts skipped because you already follow them; fewer results may be available. The supported range is shown next to the field. Invalid values are highlighted and focused before any search starts. Only the profile header is used for follow clicks, excluding suggested accounts elsewhere on a profile.
 
 The search term and account limit are saved while you edit them and remain visible after refreshing, together with the last stopped status. A stopped run never restarts just because you refresh. Active searches reopen and re-enter the term with a fresh discovery timeout after refresh. The queued profile paths, expected destination, and click deadline are saved before each profile navigation, allowing the run to continue when the page loads. Unexpected navigation stops the run. If no matching search results or profile controls can be identified within 20 seconds, the run stops with a message. Changing the search term directly on Instagram also stops discovery. The existing error and dialog checks remain active when following profiles.
 
@@ -81,6 +83,7 @@ Run state is stored in Chrome's session storage, keyed by tab ID. It includes th
 | `content.js` | On-page controls, discovery workflow, button detection, timing, scrolling, reloads, and animations. |
 | `discovery.js` | Native Instagram search input and scoped account-link discovery. |
 | `popup.html` | Extension popup layout and English interface text. |
+| `icons/` | Generated camera/follow artwork and Chrome icons in 16, 32, 48, and 128 px sizes; generation prompt in `icons/README.md`. |
 | `popup.js` | Active-tab validation and control injection. |
 | `test/` | Unit tests and a mocked page/timer harness. |
 | `scripts/sync-version.cjs` | Synchronizes the extension version with `package.json`. |

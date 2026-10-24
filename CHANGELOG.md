@@ -2,6 +2,21 @@
 
 Versions follow Semantic Versioning (`major.minor.patch`).
 
+## 1.4.0 — 2026-10-24
+
+### Added
+
+- Increase the keyword-search account limit from 50 to 100, including result collection and the persisted profile queue. The default remains 10; fewer matching results may be available.
+- Show the allowed range directly in the account-count label and highlight/focus invalid values before starting search.
+- Add an original camera/follow icon generated with the built-in Imagegen tool. Include transparent PNG exports at 16, 32, 48, and 128 px for the Chrome toolbar and extension manager, plus the popup header.
+
+### Validation
+
+- Add regressions for limits of 1, 50, and 100, result queues beyond 50 accounts, and invalid-input feedback. Run the Chrome search regression with a limit of 100.
+- Verify that manifest icon references point to valid PNG files with their declared dimensions.
+- Run `npm run check`, `npm run test:browser`, and `git diff --check`.
+- The reported screenshot showed a 100-account value rejected by the former 1–50 validation, so search had not started. Live Instagram account discovery remains unverified.
+
 ## 1.3.2 — 2026-10-24
 
 ### Fixed

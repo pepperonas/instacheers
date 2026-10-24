@@ -66,7 +66,8 @@ test('activates Explore search, prefers the focused dialog input over its visibl
     window.overlay = [...document.documentElement.children].find(node => node.shadowRoot).shadowRoot;
     window.__instaCheersV3.show();
     overlay.getElementById('keyword').value = 'camping';
-    overlay.getElementById('limit').value = '2';
+    overlay.getElementById('limit').value = '100';
+    if (overlay.getElementById('limit').max !== '100') throw new Error('Visible account limit is out of sync');
     overlay.getElementById('search').click();
   `);
   const deadline = Date.now() + 15000;
@@ -83,4 +84,5 @@ test('activates Explore search, prefers the focused dialog input over its visibl
   assert.equal(saved.keyword, 'camping');
   assert.deepEqual(saved.discovery.queue, ['/camping.two/']);
   assert.equal(saved.count, 0);
+  assert.equal(saved.discovery.limit, 100);
 });

@@ -53,7 +53,7 @@ test('does not broaden search discovery to the whole page', async () => {
 test('rejects empty keywords and invalid account limits without starting', async () => {
   const h = await createHarness();
   h.openSearch(['camping.one']);
-  for (const [query, limit] of [[' ', 10], ['x'.repeat(101), 10], ['camping', 0], ['camping', 51], ['camping', 1.5]]) {
+  for (const [query, limit] of [[' ', 10], ['x'.repeat(101), 10], ['camping', 0], ['camping', 101], ['camping', 1.5]]) {
     await h.search(query, limit);
     assert.equal(h.state, undefined);
     assert.equal(h.timers.size, 0);
@@ -374,4 +374,31 @@ test('prefers the focused search input when an older editable launcher stays vis
   assert.equal(launcher.value, '');
   assert.equal(field.value, 'camping');
   assert.equal(h.location.href, 'https://www.instagram.com/camping.one/');
+});
+
+for (const limit of [1, 50, 100]) {
+  test(`accepts a ${limit}-account search and does not truncate it at the old 50-account ceiling`, async () => {
+    const h = await createHarness();
+    h.openSearch(Array.from({ length: 110 }, (_, index) => 'camping.' + index));
+    await h.search('camping', limit);
+    await h.advance(6000);
+    assert.equal(h.state.running, true);
+    assert.equal(h.state.discovery.limit, limit);
+    assert.equal(h.state.discovery.queue.length, limit - 1);
+    assert.equal(h.location.href, 'https://www.instagram.com/camping.0/');
+  });
+}
+
+test('an out-of-range account count focuses the invalid field and explains the supported range', async () => {
+  const h = await createHarness();
+  h.openSearch(['camping.one']);
+  await h.search('camping', 101);
+  assert.equal(h.state, undefined);
+  assert.equal(h.nodes.limit.attributes['aria-invalid'], 'true');
+  assert.equal(h.nodes.limit.focused, true);
+  assert.equal(h.nodes.status.textContent, 'Choose a maximum of 1–100 accounts.');
+  h.nodes.limit.value = '100';
+  h.nodes.limit.oninput();
+  assert.equal(h.nodes.limit.attributes['aria-invalid'], undefined);
+  assert.equal(h.nodes.status.textContent, 'Ready to search.');
 });
